@@ -1,0 +1,46 @@
+version: 2
+
+models:
+  - name: address_balances
+    description: >-
+      One row per normalized non-excluded address with net output-minus-input
+      movement inside the captured three-month source-relative window. This is
+      not a lifetime wallet balance and may be negative at window boundaries.
+    columns:
+      - name: address
+        description: Trimmed address preserving case-sensitive source representation.
+        data_tests:
+          - not_null
+          - unique
+      - name: input_satoshis
+        description: Absolute input movement represented in the ledger.
+        data_tests:
+          - not_null
+      - name: output_satoshis
+        description: Absolute output movement represented in the ledger.
+        data_tests:
+          - not_null
+      - name: balance_satoshis
+        description: Exact signed net movement in source satoshi units.
+        data_tests:
+          - not_null
+      - name: balance_bch
+        description: Decimal BCH conversion, equal to balance_satoshis / 100000000.
+        data_tests:
+          - not_null
+      - name: window_start_timestamp
+        data_tests:
+          - not_null
+      - name: window_end_timestamp
+        data_tests:
+          - not_null
+      - name: window_months
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [3]
+                quote: false
+      - name: window_captured_at_timestamp
+        data_tests:
+          - not_null

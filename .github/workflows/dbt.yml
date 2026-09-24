@@ -1,0 +1,126 @@
+name: dbt
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+    tags-ignore:
+      - "**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbt-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Prefer the project and location variables documented by the infrastructure
+  # repository; retain the dbt-specific project name as a local/legacy fallback.
+  DBT_BIGQUERY_PROJECT: ${{ vars.GCP_PROJECT_ID || vars.DBT_BIGQUERY_PROJECT || 'local-placeholder' }}
+  DBT_BIGQUERY_LOCATION: ${{ vars.GCP_BIGQUERY_LOCATION || 'US' }}
+
+jobs:
+  parse:
+    name: Parse dbt project
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version-file: .python-version
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Create local profile
+        run: cp profiles.yml.example profiles.yml
+
+      - name: Parse project
+        run: uv run dbt parse --no-partial-parse
+
+  build:
+    name: Run, test, and document BigQuery models
+    needs: parse
+    if: ${{ vars.GCP_PROJECT_ID != '' || vars.DBT_BIGQUERY_PROJECT != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version-file: .python-version
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Authenticate to Google Cloud with Workload Identity Federation
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT || vars.GCP_DBT_SERVICE_ACCOUNT }}
+          audience: sts.googleapis.com
+
+      - name: Create CI profile
+        run: cp profiles.yml.example profiles.yml
+
+      - name: Install packages
+        run: uv run dbt deps
+
+      - name: Compile project without introspection
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_GHA_CREDS_PATH }}
+        run: uv run dbt compile --no-introspect
+
+      - name: Run models
+        # The full source refresh measured 945.6 GiB for stg_transactions.
+        # Rebuild the downstream mart in PR CI against the provisioned,
+        # expiring snapshot instead of charging a second near-1-TiB scan.
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_GHA_CREDS_PATH }}
+          DBT_MAXIMUM_BYTES_BILLED: 53687091200
+        run: uv run dbt run --target ci --select address_balances
+
+      - name: Test models
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_GHA_CREDS_PATH }}
+        run: uv run dbt test --target ci
+
+      - name: Generate documentation
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_GHA_CREDS_PATH }}
+        run: uv run dbt docs generate --target ci
+
+      - name: Upload dbt run results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dbt-run-results-${{ github.run_id }}
+          path: |
+            target/run_results.json
+            target/manifest.json
+            target/catalog.json
+          if-no-files-found: warn
+          retention-days: 14

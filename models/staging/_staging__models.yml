@@ -1,0 +1,124 @@
+version: 2
+
+models:
+  - name: stg_analysis_window
+    description: >-
+      One captured source-relative rolling window. The end is max source block
+      timestamp and the start is exactly three months earlier; no wall-clock
+      date is used to determine either boundary.
+    columns:
+      - name: window_start_timestamp
+        description: Inclusive exact UTC timestamp boundary.
+        data_tests:
+          - not_null
+      - name: window_end_timestamp
+        description: Inclusive source maximum block timestamp.
+        data_tests:
+          - not_null
+          - unique
+      - name: window_start_partition_date
+        description: Safe lower daily-partition bound for source pruning.
+        data_tests:
+          - not_null
+      - name: window_end_partition_date
+        description: Last source partition touched by the exact window.
+        data_tests:
+          - not_null
+      - name: window_months
+        description: Configured lookback length in months.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [3]
+                quote: false
+      - name: window_captured_at_timestamp
+        description: Audit timestamp for materialization of the captured bounds.
+        data_tests:
+          - not_null
+
+  - name: stg_transactions
+    description: >-
+      Deduplicated transactions from the public source, filtered to the one
+      captured window. Materialized as a partitioned table so a moving window
+      replaces and removes transactions that age out.
+    columns:
+      - name: transaction_hash
+        description: Deterministic transaction key renamed from the source hash.
+        data_tests:
+          - not_null
+          - unique
+      - name: block_timestamp
+        description: UTC block timestamp used for exact window filtering.
+        data_tests:
+          - not_null
+      - name: block_timestamp_month
+        description: Source BigQuery daily partition column.
+        data_tests:
+          - not_null
+      - name: input_value
+        description: Source transaction input total in numeric satoshi units.
+      - name: output_value
+        description: Source transaction output total in numeric satoshi units.
+      - name: fee
+        description: Source transaction fee in numeric satoshi units.
+      - name: is_coinbase
+        description: Source protocol-coinbase flag.
+      - name: window_start_timestamp
+        data_tests:
+          - not_null
+      - name: window_end_timestamp
+        data_tests:
+          - not_null
+      - name: window_months
+        data_tests:
+          - not_null
+      - name: window_captured_at_timestamp
+        data_tests:
+          - not_null
+
+  - name: stg_protocol_coinbase_addresses
+    description: >-
+      Distinct normalized non-empty addresses received by protocol coinbase
+      outputs within the captured analysis window.
+    columns:
+      - name: address
+        description: Trimmed address preserving case-sensitive source representation.
+        data_tests:
+          - not_null
+          - unique
+
+  - name: stg_address_ledger
+    description: >-
+      Normalized address movement rows. Inputs are negative and outputs are
+      positive; a multisig entry is represented by separate address rows.
+    columns:
+      - name: transaction_hash
+        data_tests:
+          - not_null
+      - name: movement_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [input, output]
+      - name: entry_index
+        description: Index of the source input or output entry.
+      - name: address
+        data_tests:
+          - not_null
+      - name: amount_satoshis
+        description: Signed numeric movement in source satoshi units.
+        data_tests:
+          - not_null
+      - name: transaction_fee_satoshis
+        description: Source transaction fee retained for audit; not assigned to an address.
+      - name: window_start_timestamp
+        data_tests:
+          - not_null
+      - name: window_end_timestamp
+        data_tests:
+          - not_null
+      - name: window_captured_at_timestamp
+        data_tests:
+          - not_null

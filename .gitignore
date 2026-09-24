@@ -1,0 +1,44 @@
+# dbt generated and downloaded content
+dbt_packages/
+target/
+logs/
+
+# Local profiles and credentials
+profiles.yml
+dbt_profile.yml
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python tooling
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+
+# LaTeX generated content (compiled PDFs remain tracked)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

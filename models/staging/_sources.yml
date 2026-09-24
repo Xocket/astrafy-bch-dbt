@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: bch_analytics
+    description: >-
+      Public Google Cloud Bitcoin Cash data used by the dbt project. The
+      source is intentionally limited to the transactions table because it
+      contains the transaction-level values and nested address arrays needed
+      by the mart.
+    database: "{{ target.project }}"
+    schema: staging
+    tables:
+      - name: transactions
+        identifier: "{{ var('bch_source_table') }}"
+        description: >-
+          Terraform-managed access view over
+          bigquery-public-data.crypto_bitcoin_cash.transactions. The
+          underlying raw table is partitioned by block_timestamp_month and
+          contains the nested address/value arrays used by the dbt models.
+        columns:
+          - name: transaction_hash
+            description: Renamed transaction hash from the Terraform-managed source view.
+          - name: block_timestamp
+            description: UTC block timestamp.
+          - name: block_timestamp_month
+            description: Daily BigQuery partition column.
+          - name: input_value
+            description: Total input value in source satoshi units.
+          - name: output_value
+            description: Total output value in source satoshi units.
+          - name: fee
+            description: Transaction fee in source satoshi units.
+          - name: is_coinbase
+            description: Source flag identifying a protocol coinbase transaction.
+          - name: inputs
+            description: Nested transaction inputs, including addresses and numeric value.
+          - name: outputs
+            description: Nested transaction outputs, including addresses and numeric value.

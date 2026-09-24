@@ -1,0 +1,25 @@
+bch_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('DBT_BIGQUERY_PROJECT', 'local-placeholder') }}"
+      dataset: staging
+      location: "{{ env_var('DBT_BIGQUERY_LOCATION', 'US') }}"
+      threads: 4
+      job_execution_timeout_seconds: 600
+      maximum_bytes_billed: "{{ env_var('DBT_MAXIMUM_BYTES_BILLED', '107374182400') | int }}"
+      impersonate_service_account: "{{ env_var('DBT_IMPERSONATE_SERVICE_ACCOUNT', '') }}"
+      dry_run: false
+
+    ci:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('DBT_BIGQUERY_PROJECT', 'local-placeholder') }}"
+      dataset: staging
+      location: "{{ env_var('DBT_BIGQUERY_LOCATION', 'US') }}"
+      threads: 4
+      job_execution_timeout_seconds: 900
+      maximum_bytes_billed: "{{ env_var('DBT_MAXIMUM_BYTES_BILLED', '53687091200') | int }}"
+      dry_run: false

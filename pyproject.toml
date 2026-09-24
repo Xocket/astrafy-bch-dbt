@@ -1,0 +1,17 @@
+[project]
+name = "bch-analytics-dbt"
+version = "0.1.0"
+description = "Auditable dbt transformations for the Astrafy take-home challenge"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "dbt-bigquery==1.12.1",
+]
+
+[dependency-groups]
+dev = [
+  "pre-commit>=4.2,<5",
+]
+
+[tool.uv]
+package = false

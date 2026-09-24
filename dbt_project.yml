@@ -1,0 +1,36 @@
+name: bch_analytics
+version: 0.1.0
+config-version: 2
+
+profile: bch_analytics
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: target
+clean-targets:
+  - target
+  - dbt_packages
+
+vars:
+  bch_source_dataset: bigquery-public-data.crypto_bitcoin_cash
+  bch_source_table: bch_transactions_source
+  lookback_months: 3
+
+models:
+  bch_analytics:
+    +on_schema_change: sync_all_columns
+    staging:
+      +materialized: table
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts
+
+flags:
+  send_anonymous_usage_stats: false
+  use_colors: true
